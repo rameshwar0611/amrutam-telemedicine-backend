@@ -1,0 +1,40 @@
+sequenceDiagram
+  autonumber
+  participant C as MFA-authenticated patient
+  participant H as Express route/controller
+  participant S as Booking service
+  participant P as PostgreSQL transaction
+  C->>H: POST /v1/consultations + Idempotency-Key + slotId
+  H->>H: Shared ingress, live auth, patient RBAC, rate limit, Zod
+  H->>S: Actor, validated input, key, request ID
+  S->>P: Begin; revalidate/lock actor and session
+  S->>P: Claim actor-scoped key; compare fingerprint
+  alt Completed identical request
+    P-->>S: Decrypt original status/body
+    S->>P: Commit without another business event
+  else New logical request
+    S->>P: Shared doctor lock, check active account
+    S->>P: Slot FOR UPDATE; recheck future/open/unoccupied
+    alt Slot unavailable
+      S->>P: Save conflict outcome; commit
+      P-->>S: 409
+    else Slot available
+      S->>P: Insert consultation (partial unique occupancy index)
+      S->>P: Append audit and unique pending outbox with traceparent
+      S->>P: Encrypt/store original result; COMMIT
+      P-->>S: 201 and booking DTO
+    end
+  end
+  S-->>H: Original status/body
+  H-->>C: Response (safe same-key retry after lost response)
+  Note over S,P: Any unexpected persistence failure rolls back all four writes
+  Note over S,P: No Redis or external network call inside transaction
+  Note over C,P: Cancellation locks actor/key, doctor, slot, consultation; validates state and commits cancellation/audit/outbox/result together
+  Note over C,P: Phase 4 worker leases committed events, records receipts and compensates internal payments; no provider notifications
+  participant W as Restricted worker
+  participant O as OTel collector
+  W->>P: Lease committed job with SKIP LOCKED and fencing
+  P-->>W: ID-only payload and traceparent
+  W->>O: Consumer span, safe SQL spans and outcome metrics
+  W->>P: Receipt + any internal compensation + audit + fenced ack
+  Note over W,P: Fake refund adapter runs outside transactions; crash recovery uses stable idempotency key

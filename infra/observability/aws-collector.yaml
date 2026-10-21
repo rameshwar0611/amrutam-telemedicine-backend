@@ -1,0 +1,52 @@
+receivers:
+  otlp:
+    protocols:
+      http: { endpoint: '0.0.0.0:4318' }
+processors:
+  memory_limiter: { check_interval: 1s, limit_mib: 128, spike_limit_mib: 32 }
+  attributes/privacy:
+    actions:
+      - { key: db.statement, action: delete }
+      - { key: db.query.text, action: delete }
+      - { key: url.full, action: delete }
+      - { key: http.url, action: delete }
+      - { key: url.query, action: delete }
+      - { key: exception.message, action: delete }
+      - { key: exception.stacktrace, action: delete }
+  cumulativetodelta: {}
+  batch: { timeout: 1s, send_batch_size: 256 }
+exporters:
+  awsxray:
+    region: ${env:AWS_REGION}
+  awsemf:
+    region: ${env:AWS_REGION}
+    namespace: Amrutam
+    log_group_name: ${env:OTEL_LOG_GROUP}
+    dimension_rollup_option: NoDimensionRollup
+    resource_to_telemetry_conversion: { enabled: true }
+    metric_declarations:
+      - dimensions: [['service.name', state]]
+        metric_name_selectors: ['^(db_pool_connections|worker_backlog)$']
+      - dimensions: [['service.name']]
+        metric_name_selectors:
+          ['^(worker_oldest_pending_seconds|booking_conflicts_total|auth_failures_total)$']
+      - dimensions: [['service.name', method, route, status]]
+        metric_name_selectors: ['^http_request_duration_seconds$']
+      - dimensions: [['service.name', operation, outcome]]
+        metric_name_selectors: ['^db_operation_duration_seconds$']
+      - dimensions: [['service.name', outcome]]
+        metric_name_selectors: ['^worker_jobs_total$']
+service:
+  pipelines:
+    traces:
+      {
+        receivers: [otlp],
+        processors: [memory_limiter, attributes/privacy, batch],
+        exporters: [awsxray],
+      }
+    metrics:
+      {
+        receivers: [otlp],
+        processors: [memory_limiter, cumulativetodelta, batch],
+        exporters: [awsemf],
+      }

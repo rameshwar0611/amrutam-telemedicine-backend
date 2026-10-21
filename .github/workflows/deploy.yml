@@ -1,0 +1,56 @@
+name: Approved staging deployment
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type DEPLOY-STAGING after explicit approval and reviewing CI/security results'
+        required: true
+        type: string
+permissions: { contents: read }
+concurrency: { group: staging-deploy, cancel-in-progress: false }
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+  deploy:
+    needs: verify
+    if: inputs.confirmation == 'DEPLOY-STAGING' && github.ref == 'refs/heads/main'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: read, id-token: write }
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      PRIVATE_SUBNETS: ${{ vars.PRIVATE_SUBNETS }}
+      SECURITY_GROUP: ${{ vars.SECURITY_GROUP }}
+      STAGING_URL: ${{ vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - run: npm ci
+      - run: npm run typecheck && npm run lint && npm run build && npm run openapi:check
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: github-amrutam-staging
+      - name: Build and scan before publication
+        run: |
+          docker build --tag amrutam:release .
+          mkdir -p work
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/work:/evidence" aquasec/trivy:0.67.2 image --scanners vuln --format json --output /evidence/image-vulnerabilities.json amrutam:release
+          node scripts/image-policy.mjs work/image-vulnerabilities.json
+      - name: Publish immutable image
+        shell: bash
+        run: |
+          registry="${ECR_REPOSITORY%%/*}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+          docker tag amrutam:release "$ECR_REPOSITORY:$GITHUB_SHA"
+          docker push "$ECR_REPOSITORY:$GITHUB_SHA"
+          digest=$(aws ecr batch-get-image --repository-name "${ECR_REPOSITORY#*/}" --image-ids "imageTag=$GITHUB_SHA" --query 'images[0].imageId.imageDigest' --output text)
+          echo "IMAGE_DIGEST=$digest" >> "$GITHUB_ENV"
+      - name: Migrate once, deploy, smoke and restore previous task revisions on failure
+        env: { CONFIRM_STAGING_DEPLOY: 'yes' }
+        run: bash scripts/deploy-staging.sh

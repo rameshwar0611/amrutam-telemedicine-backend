@@ -1,0 +1,43 @@
+name: Infrastructure and security
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  infrastructure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: '1.13.5' }
+      - run: terraform -chdir=infra/terraform fmt -check -recursive
+      - run: terraform -chdir=infra/terraform init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=infra/terraform validate
+      - name: Terraform security
+        run: docker run --rm -v "$PWD:/src:ro" aquasec/trivy:0.67.2 config --exit-code 1 --severity HIGH,CRITICAL /src/infra/terraform
+      - name: Publication secret scan
+        run: |
+          node scripts/repository-check.mjs --snapshot
+          docker run --rm -v "$PWD/work/submission:/src:ro" zricethezav/gitleaks:v8.28.0 dir /src --redact --exit-code 1
+      - name: Workflow validation
+        run: docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:1.7.11 -color
+      - name: Alert validation
+        run: docker run --rm --entrypoint promtool -v "$PWD/infra/observability:/config:ro" prom/prometheus:v3.7.3 check rules /config/alerts.yaml
+      - name: Collector configuration validation
+        run: |
+          docker run --rm -v "$PWD/infra/observability:/config:ro" otel/opentelemetry-collector-contrib:0.139.0 validate --config=/config/collector.yaml
+          docker run --rm -e AWS_REGION=ap-south-1 -e OTEL_LOG_GROUP=/validation/otel -v "$PWD/infra/observability:/config:ro" otel/opentelemetry-collector-contrib:0.139.0 validate --config=/config/aws-collector.yaml
+      - run: docker build -t amrutam:scan .
+      - name: Container security
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/work:/evidence" aquasec/trivy:0.67.2 image --scanners vuln --format json --output /evidence/image-vulnerabilities.json amrutam:scan
+          node scripts/image-policy.mjs work/image-vulnerabilities.json
+      - name: Preserve complete image findings including unfixed vulnerabilities
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-vulnerability-report
+          path: work/image-vulnerabilities.json
+          retention-days: 7

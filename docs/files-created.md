@@ -1,0 +1,115 @@
+# Complete Phase 1 file inventory
+
+104 authored source/configuration/documentation files, including this inventory.
+
+This inventory excludes the pre-existing `.git` directory, installed `node_modules`,
+generated `dist`, and ignored `work` scratch files/local test credentials.
+The eight business modules have layer directories reserved with `.gitkeep`;
+their README files explicitly state that business functionality is not implemented.
+
+Existing repository remote/configuration was preserved. Nothing was committed or pushed.
+
+- `.dockerignore`
+- `.env.example`
+- `.gitattributes`
+- `.github/workflows/ci.yml`
+- `.gitignore`
+- `.nvmrc`
+- `.prettierignore`
+- `.prettierrc.json`
+- `Dockerfile`
+- `README.md`
+- `compose.yaml`
+- `docs/architecture.md`
+- `docs/database-design.md`
+- `docs/diagrams/architecture.mmd`
+- `docs/diagrams/booking-sequence.mmd`
+- `docs/diagrams/er.mmd`
+- `docs/files-created.md`
+- `docs/implementation-checklist.md`
+- `docs/openapi.json`
+- `docs/verification.md`
+- `eslint.config.mjs`
+- `infra/postgres/init-runtime-roles.sh`
+- `migrations/0001_extensions.down.sql`
+- `migrations/0001_extensions.up.sql`
+- `migrations/0002_core.down.sql`
+- `migrations/0002_core.up.sql`
+- `migrations/0003_identity_support.down.sql`
+- `migrations/0003_identity_support.up.sql`
+- `migrations/0004_reliability_support.down.sql`
+- `migrations/0004_reliability_support.up.sql`
+- `migrations/0005_guards_and_privileges.down.sql`
+- `migrations/0005_guards_and_privileges.up.sql`
+- `package-lock.json`
+- `package.json`
+- `src/composition-root.ts`
+- `src/entrypoints/api.ts`
+- `src/entrypoints/migrate.ts`
+- `src/entrypoints/openapi.ts`
+- `src/entrypoints/worker.ts`
+- `src/infrastructure/config/env.ts`
+- `src/infrastructure/database/client.ts`
+- `src/infrastructure/database/migrator.ts`
+- `src/infrastructure/database/types.ts`
+- `src/infrastructure/database/unit-of-work.ts`
+- `src/infrastructure/http/app.ts`
+- `src/infrastructure/http/errors.ts`
+- `src/infrastructure/http/lifecycle.ts`
+- `src/infrastructure/logging/logger.ts`
+- `src/infrastructure/openapi/document.ts`
+- `src/infrastructure/redis/client.ts`
+- `src/modules/analytics/README.md`
+- `src/modules/analytics/controllers/.gitkeep`
+- `src/modules/analytics/repositories/.gitkeep`
+- `src/modules/analytics/routes/.gitkeep`
+- `src/modules/analytics/services/.gitkeep`
+- `src/modules/audit/README.md`
+- `src/modules/audit/controllers/.gitkeep`
+- `src/modules/audit/repositories/.gitkeep`
+- `src/modules/audit/routes/.gitkeep`
+- `src/modules/audit/services/.gitkeep`
+- `src/modules/bookings/README.md`
+- `src/modules/bookings/controllers/.gitkeep`
+- `src/modules/bookings/repositories/.gitkeep`
+- `src/modules/bookings/routes/.gitkeep`
+- `src/modules/bookings/services/.gitkeep`
+- `src/modules/consultations/README.md`
+- `src/modules/consultations/controllers/.gitkeep`
+- `src/modules/consultations/repositories/.gitkeep`
+- `src/modules/consultations/routes/.gitkeep`
+- `src/modules/consultations/services/.gitkeep`
+- `src/modules/doctors/README.md`
+- `src/modules/doctors/controllers/.gitkeep`
+- `src/modules/doctors/repositories/.gitkeep`
+- `src/modules/doctors/routes/.gitkeep`
+- `src/modules/doctors/services/.gitkeep`
+- `src/modules/health/controllers/health.controller.ts`
+- `src/modules/health/repositories/database-health.repository.ts`
+- `src/modules/health/repositories/redis-health.repository.ts`
+- `src/modules/health/routes/health.routes.ts`
+- `src/modules/health/schemas.ts`
+- `src/modules/health/services/health.service.ts`
+- `src/modules/identity/README.md`
+- `src/modules/identity/controllers/.gitkeep`
+- `src/modules/identity/repositories/.gitkeep`
+- `src/modules/identity/routes/.gitkeep`
+- `src/modules/identity/services/.gitkeep`
+- `src/modules/payments/README.md`
+- `src/modules/payments/controllers/.gitkeep`
+- `src/modules/payments/repositories/.gitkeep`
+- `src/modules/payments/routes/.gitkeep`
+- `src/modules/payments/services/.gitkeep`
+- `src/modules/prescriptions/README.md`
+- `src/modules/prescriptions/controllers/.gitkeep`
+- `src/modules/prescriptions/repositories/.gitkeep`
+- `src/modules/prescriptions/routes/.gitkeep`
+- `src/modules/prescriptions/services/.gitkeep`
+- `src/shared/timeout.ts`
+- `tests/integration/database.test.ts`
+- `tests/unit/config.test.ts`
+- `tests/unit/health-timeout.test.ts`
+- `tests/unit/http.test.ts`
+- `tsconfig.build.json`
+- `tsconfig.json`
+- `vitest.config.ts`
