@@ -2,6 +2,11 @@
 
 This is the current implementation design. A four-page rendered copy is in
 `architecture-submission.pdf`, with separate security/operations appendices.
+The PDF includes vector system, core ER and booking sequence diagrams, plus all
+ten supporting table key relationships. Its editable text/layout/diagram source
+is `render-architecture.py`. Regenerate with `python3 docs/render-architecture.py`
+(ReportLab 4.4.9, pypdf 6.10.0, Liberation Sans and DejaVu Sans Mono fonts).
+Render for review with `pdftoppm -r 150 -png docs/architecture-submission.pdf work/architecture-review/page`.
 No production deployment, capacity or availability achievement is claimed here.
 
 ## Components and boundaries
@@ -53,8 +58,8 @@ Identity changes, token/MFA state, audit and encrypted idempotency outcomes comm
 or roll back together. Expected security failures return outcomes so attempt counters
 and failure audits commit before HTTP error handling. External calls are excluded.
 
-Database constraints reject overlapping doctor slots and multiple occupying
-consultations, bind slots/prescriptions to their doctor, protect historical/issued
+Database constraints reject overlapping doctor slots and multiple non-cancelled
+consultations for one slot (including completed and no-show records), bind slots/prescriptions to their doctor, protect historical/issued
 contents, and bind pending factors to their flow owner. Clinical notes and prescription payloads are AES-GCM encrypted with record-bound
 associated data. Database guards freeze completed clinical records and finalized
 prescriptions; authorized accesses are transactionally audited.
@@ -96,14 +101,15 @@ enter runtime layers. No paid cloud resources are provisioned.
 
 Structured redacted logs, request IDs, readiness/liveness and graceful shutdown
 exist. CI defines formatting/lint/type/build/contract/tests/dependency audit,
-Compose validation and image build. Hosted execution and delivery are not verified.
+Compose validation and image build. Hosted Backend CI and infrastructure/security checks passed on push and PR for
+implementation commit `9f09a95`; cloud delivery remains unverified.
 Allowlisted OpenTelemetry spans cover actual HTTP requests, Kysely SQL operations
 and worker handling with traceparent persisted in the outbox. Prometheus-compatible
 metrics cover latency, conflicts, auth denials, pool pressure and queue health.
 Local collector/Prometheus/Tempo/Grafana and alerts are configured. Terraform
 specifies private ECS services, managed Multi-AZ PostgreSQL, replicated cache, KMS,
 secrets references, private ECR/endpoints and OIDC-gated deployment. No cloud
-resources or hosted delivery have been exercised. See `operations.md`, `backup-dr.md`
+resources or AWS deployments have been exercised. See `operations.md`, `backup-dr.md`
 and `infra/terraform/README.md` (from repository root) for operational boundaries.
 
 Targets remain 100k consultations/day, p95 reads below 200 ms, writes below 500 ms,
