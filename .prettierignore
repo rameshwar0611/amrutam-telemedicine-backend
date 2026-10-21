@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+work
+package-lock.json
+docs/openapi.json
+*.sql
+
+infra/terraform/.terraform/

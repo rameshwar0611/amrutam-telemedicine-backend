@@ -1,0 +1,65 @@
+name: Backend CI
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: amrutam_ci
+          POSTGRES_PASSWORD: ephemeral_ci_password
+          POSTGRES_DB: amrutam_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U amrutam_ci -d amrutam_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgresql://amrutam_ci:ephemeral_ci_password@127.0.0.1:5432/amrutam_test
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm run openapi:check
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm audit --audit-level=high
+      - run: npm run security:generate-env
+      - name: Validate local Compose definition
+        env:
+          POSTGRES_PASSWORD: ephemeral_owner
+          API_DB_PASSWORD: ephemeral_api
+          WORKER_DB_PASSWORD: ephemeral_worker
+          MAINTENANCE_DB_PASSWORD: ephemeral_maintenance
+          MAINTENANCE_DATABASE_URL: postgresql://amrutam_maintenance:ephemeral_maintenance@postgres:5432/amrutam
+          API_DATABASE_URL: postgresql://amrutam_api:ephemeral_api@postgres:5432/amrutam
+          WORKER_DATABASE_URL: postgresql://amrutam_worker:ephemeral_worker@postgres:5432/amrutam
+          MIGRATION_DATABASE_URL: postgresql://amrutam_owner:ephemeral_owner@postgres:5432/amrutam
+        run: docker compose --env-file work/security.env config --quiet
+      - name: Build runtime container
+        run: docker build --tag amrutam-backend:ci .

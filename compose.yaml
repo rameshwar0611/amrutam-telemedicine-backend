@@ -1,0 +1,142 @@
+name: amrutam
+
+x-application: &application
+  image: amrutam-backend:local
+  build: .
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
+x-environment: &environment
+  NODE_ENV: development # Local PostgreSQL/Redis use private-network plaintext connections.
+  HOST: 0.0.0.0
+  PORT: 3000
+  WORKER_HEALTH_PORT: 3001
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_SSL_MODE: disable
+  REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-amrutam}
+      POSTGRES_USER: ${POSTGRES_USER:-amrutam_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?Set API_DB_PASSWORD in .env}
+      WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD:?Set WORKER_DB_PASSWORD in .env}
+      MAINTENANCE_DB_PASSWORD: ${MAINTENANCE_DB_PASSWORD:?Set MAINTENANCE_DB_PASSWORD in .env}
+    ports: [127.0.0.1:5432:5432]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-runtime-roles.sh:/docker-entrypoint-initdb.d/10-runtime-roles.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --save, '', --appendonly, 'no']
+    ports: [127.0.0.1:6379:6379]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *application
+    command: [node, dist/entrypoints/migrate.js, up]
+    environment:
+      <<: *environment
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set MIGRATION_DATABASE_URL in .env}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    <<: *application
+    command: [node, dist/entrypoints/api.js]
+    environment:
+      <<: *environment
+      DATABASE_URL: ${API_DATABASE_URL:?Set API_DATABASE_URL in .env}
+      TRUST_PROXY_CIDRS: ${TRUST_PROXY_CIDRS:-}
+      AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:?Generate security configuration}
+      AUTH_JWT_PRIVATE_KEY_BASE64: ${AUTH_JWT_PRIVATE_KEY_BASE64:?Generate security configuration}
+      AUTH_JWT_PUBLIC_KEYS: ${AUTH_JWT_PUBLIC_KEYS:?Generate security configuration}
+      AUTH_ENCRYPTION_KEY_ID: ${AUTH_ENCRYPTION_KEY_ID:?Generate security configuration}
+      AUTH_ENCRYPTION_KEYS: ${AUTH_ENCRYPTION_KEYS:?Generate security configuration}
+      AUTH_TOKEN_PEPPER_BASE64: ${AUTH_TOKEN_PEPPER_BASE64:?Generate security configuration}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-https://amrutam.local}
+      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-amrutam-api}
+      AUTH_ACCESS_TTL_SECONDS: ${AUTH_ACCESS_TTL_SECONDS:-300}
+      AUTH_CHALLENGE_TTL_SECONDS: ${AUTH_CHALLENGE_TTL_SECONDS:-300}
+      AUTH_REFRESH_TTL_SECONDS: ${AUTH_REFRESH_TTL_SECONDS:-604800}
+      AUTH_SETUP_TTL_SECONDS: ${AUTH_SETUP_TTL_SECONDS:-3600}
+      AUTH_RETRY_TTL_SECONDS: ${AUTH_RETRY_TTL_SECONDS:-30}
+      AUTH_LOGIN_LIMIT: ${AUTH_LOGIN_LIMIT:-10}
+      AUTH_IP_LIMIT: ${AUTH_IP_LIMIT:-60}
+    ports: [127.0.0.1:3000:3000]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  worker:
+    <<: *application
+    command: [node, dist/entrypoints/worker.js]
+    environment:
+      <<: *environment
+      DATABASE_URL: ${WORKER_DATABASE_URL:?Set WORKER_DATABASE_URL in .env}
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-1000}
+      WORKER_LEASE_MS: ${WORKER_LEASE_MS:-30000}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  maintenance:
+    <<: *application
+    profiles: [operations]
+    command: [node, dist/entrypoints/maintenance.js, --loop]
+    environment:
+      NODE_ENV: development
+      DATABASE_SSL_MODE: disable
+      DATABASE_URL: ${MAINTENANCE_DATABASE_URL:?Set MAINTENANCE_DATABASE_URL in .env}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

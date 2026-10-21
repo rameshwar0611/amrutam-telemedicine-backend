@@ -1,0 +1,59 @@
+erDiagram
+  USERS ||--o| PROFILES : has
+  USERS ||--o| DOCTORS : has
+  USERS ||--o{ CONSULTATIONS : patient
+  DOCTORS ||--o{ AVAILABILITY_SLOTS : publishes
+  DOCTORS ||--o{ CONSULTATIONS : conducts
+  AVAILABILITY_SLOTS ||--o{ CONSULTATIONS : history
+  CONSULTATIONS ||--o{ PRESCRIPTIONS : versions
+  DOCTORS ||--o{ PRESCRIPTIONS : authors
+  CONSULTATIONS ||--o{ PAYMENTS : records
+  USERS o|--o{ AUDIT_LOGS : actor
+  USERS ||--o{ AUTH_SESSIONS : owns
+  USERS ||--o{ AUTH_FLOWS : challenges
+  AUTH_FLOWS ||--o| MFA_FACTORS : pending_enrollment
+  AUTH_SESSIONS ||--o{ REFRESH_TOKEN_HISTORY : consumed_generations
+  USERS ||--o| MFA_FACTORS : enrolls
+  USERS ||--o{ MFA_RECOVERY_CODES : owns
+  USERS ||--o{ AUTH_TOKENS : receives
+  USERS o|--o{ IDEMPOTENCY_RECORDS : scopes
+  CONSULTATIONS {
+    uuid id PK
+    uuid slot_id FK
+    uuid doctor_id FK
+    uuid patient_id FK
+    text status
+    integer version
+  }
+  AVAILABILITY_SLOTS {
+    uuid id PK
+    uuid doctor_id FK
+    timestamptz starts_at
+    timestamptz ends_at
+    text status
+  }
+  AUDIT_LOGS {
+    timestamptz occurred_at PK
+    uuid id PK
+    uuid actor_id FK
+  }
+  OUTBOX_JOBS {
+    uuid id PK
+    text deduplication_key UK
+    text status
+    text trace_parent
+    timestamptz lease_until
+  }
+
+  DOCTOR_DIRECTORY_REVISION {
+    boolean id PK
+    uuid generation
+  }
+
+  OUTBOX_JOBS ||--o| JOB_RECEIPTS : processed_once
+  PRESCRIPTIONS o|--o{ PRESCRIPTIONS : corrects
+  JOB_RECEIPTS {
+    uuid job_id PK, FK
+    text kind
+    timestamptz completed_at
+  }

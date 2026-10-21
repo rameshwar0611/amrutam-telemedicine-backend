@@ -1,0 +1,75 @@
+services:
+  api:
+    environment:
+      NO_PROXY: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana,postgres,redis
+      no_proxy: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana,postgres,redis
+      OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
+      OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1}
+  worker:
+    environment:
+      NO_PROXY: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana,postgres,redis
+      no_proxy: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana,postgres,redis
+      OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
+      OTEL_SAMPLE_RATIO: ${OTEL_SAMPLE_RATIO:-1}
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.139.0
+    environment:
+      NO_PROXY: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+      no_proxy: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+    command: [--config=/etc/otel/config.yaml]
+    volumes: [./infra/observability/collector.yaml:/etc/otel/config.yaml:ro]
+    ports: [127.0.0.1:4318:4318, 127.0.0.1:8889:8889, 127.0.0.1:13133:13133]
+    depends_on: [tempo]
+    restart: unless-stopped
+  prometheus:
+    environment:
+      NO_PROXY: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+      no_proxy: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+    image: prom/prometheus:v3.7.3
+    command: [--config.file=/etc/prometheus/prometheus.yaml, --storage.tsdb.retention.time=7d]
+    volumes:
+      - ./infra/observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./infra/observability/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+      - prometheus-data:/prometheus
+    ports: [127.0.0.1:9090:9090]
+    healthcheck:
+      test: [CMD, wget, -Y, 'off', -q, --spider, http://127.0.0.1:9090/-/ready]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  tempo:
+    environment:
+      NO_PROXY: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+      no_proxy: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+    image: grafana/tempo:2.9.0
+    user: '0' # Local named-volume initialization only; no host filesystem/data mount.
+    command: [-config.file=/etc/tempo.yaml]
+    volumes: [./infra/observability/tempo.yaml:/etc/tempo.yaml:ro, tempo-data:/var/tempo]
+    ports: [127.0.0.1:3200:3200]
+  grafana:
+    image: grafana/grafana:12.2.1
+    environment:
+      NO_PROXY: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+      no_proxy: ${NO_PROXY:-},localhost,127.0.0.1,collector,tempo,prometheus,grafana
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-operator}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set a unique ignored local Grafana password}
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+    ports: [127.0.0.1:3002:3000]
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus, tempo]
+    healthcheck:
+      test: [CMD, wget, -Y, 'off', -q, --spider, http://127.0.0.1:3000/api/health]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+volumes:
+  prometheus-data:
+  tempo-data:
+  grafana-data:

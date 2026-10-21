@@ -1,0 +1,41 @@
+flowchart LR
+  client[REST client] --> api[Express API]
+  api --> ingress[Shared ingress and endpoint limits]
+  ingress --> redis[(Redis)]
+  ingress --> http[Controllers and Zod]
+  http --> identity[Identity / MFA / authorization services]
+  http --> bookings[Availability / booking / cancellation services]
+  http --> directory[Doctor discovery service]
+  identity --> tx[Transaction-scoped repositories]
+  bookings --> tx
+  tx --> pg[(PostgreSQL core / identity / outbox)]
+  directory --> snapshot[Directory query and generation snapshot]
+  snapshot --> pg
+  directory --> cache[Public metadata cache: TTL 30s / DB generation]
+  cache --> redis
+  pg --> revision[Transactional doctor/account revision triggers]
+  identity --> crypto[Argon2id / EdDSA / AES-GCM / TOTP]
+  keys[Injected application keys] --> crypto
+  root[Constructor composition root] --> identity
+  root --> bookings
+  root --> directory
+  api --> health[Health / request IDs / redacted logs]
+  operator[Trusted operator CLI] --> identity
+  migrator[Owner SQL migrator] --> pg
+  worker[Durable worker: leases / fencing / receipts] --> pg
+  worker --> redis
+  worker --> jobs[Internal compensation / fake refund boundary]
+  jobs --> pg
+  maintenance[Restricted scheduled maintenance] --> pg
+  operator --> manual[Audited manual setup delivery]
+  http --> clinical[Encrypted notes / prescription versions / payments / admin]
+  clinical --> tx
+  api --> telemetry[Allowlisted OTLP spans and metrics]
+  worker --> telemetry
+  telemetry --> collector[OTel collector]
+  collector --> prom[Prometheus and alerts]
+  collector --> tempo[Tempo traces]
+  prom --> grafana[Grafana dashboards]
+  tempo --> grafana
+  github[GitHub CI / approved OIDC deployment] --> ecs[Private ECS API / worker + RDS Multi-AZ + cache]
+  ecs -. undeployed cloud configuration .-> api

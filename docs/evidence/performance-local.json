@@ -1,0 +1,15 @@
+{
+  "scope": "Local synthetic HTTP workload, trusted MFA-complete fixtures; not full-day/production proof",
+  "historicalConsultations": 1000,
+  "scheduledWrites": 50,
+  "targetWritesPerSecond": 10,
+  "elapsedSeconds": 4.939389416,
+  "completedWritesPerSecond": 10.122708656668507,
+  "reads": 200,
+  "errors": 0,
+  "readP95Ms": 14.418428000000176,
+  "writeP95Ms": 19.865589999999884,
+  "readTargetMs": 200,
+  "writeTargetMs": 500,
+  "node": "v24.19.0"
+}

@@ -1,0 +1,48 @@
+groups:
+  - name: amrutam-operations
+    rules:
+      - alert: ApiErrorRate
+        expr: sum(rate(http_request_duration_seconds_count{status=~"5.."}[5m])) / clamp_min(sum(rate(http_request_duration_seconds_count[5m])),0.001) > 0.01
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: 'API errors exceed 1%; see operations.md' }
+      - alert: ReadLatency
+        expr: histogram_quantile(0.95,sum by(le)(rate(http_request_duration_seconds_bucket{method="GET"}[5m]))) > 0.2
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'Read p95 exceeds 200ms' }
+      - alert: WriteLatency
+        expr: histogram_quantile(0.95,sum by(le)(rate(http_request_duration_seconds_bucket{method=~"POST|PUT|PATCH|DELETE"}[5m]))) > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'Write p95 exceeds 500ms' }
+      - alert: BookingConflictBurst
+        expr: sum(rate(booking_conflicts_total[5m])) > 5
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: 'Booking contention or abusive retries' }
+      - alert: DatabasePoolSaturation
+        expr: max(db_pool_connections{state="waiting"}) > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Database connection pool has sustained waiters' }
+      - alert: WorkerBacklog
+        expr: max(worker_oldest_pending_seconds) > 60
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: 'Business outbox is delayed more than 60s' }
+      - alert: WorkerTerminalFailures
+        expr: max(worker_backlog{state="failed"}) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: 'Terminal jobs require reconciliation; no blind replay' }
+      - alert: AuthenticationAbuse
+        expr: sum(rate(auth_failures_total[5m])) > 5
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: 'Authentication denials or rate limits are elevated' }
+      - alert: TelemetryTargetDown
+        expr: up{job="amrutam"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Collector metrics target unavailable' }
