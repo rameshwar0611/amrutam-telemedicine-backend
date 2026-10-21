@@ -13,7 +13,7 @@ internal payments, compensation, durable jobs; admin audit/analytics; write idem
 local Prometheus/Tempo/Grafana, alerts, restricted scheduled maintenance, backup
 restore testing, performance scripts, AWS Terraform and gated OIDC staging workflows.
 
-**Not verified:** cloud deployment, hosted Actions, full daily capacity, availability,
+**Not verified:** cloud deployment, full daily capacity, availability,
 PITR/regional recovery, external paging and complete key-recovery drills. Automatic
 setup-email delivery remains manual through the audited operator. No production
 readiness or compliance certification is claimed.
@@ -29,14 +29,15 @@ trusted `btree_gist` and `pg_trgm` extensions. There is no NestJS or frontend.
 3. Run `npm run security:generate-env`. It creates owner-only ignored
    `work/security.env` with fresh signing/encryption keys and an independent pepper.
    It refuses to overwrite an existing file. Keep it to preserve local tokens/data.
-4. Run `docker compose --env-file .env --env-file work/security.env up --build -d --wait`.
+4. Run `docker compose -p amrutam-telemedicine --env-file .env --env-file work/security.env up --build -d --wait`.
 5. Check `http://localhost:3000/health/live`, `/health/ready` and `/openapi.json`.
-6. Use the same two `--env-file` arguments for Compose logs, status and shutdown.
+6. Use the same project name (`-p amrutam-telemedicine`) and two `--env-file` arguments for Compose logs, status and shutdown.
    Stop with `down`; retain the database volume unless deliberately resetting data.
 
 Local dev/operator scripts read `.env` and then `work/security.env`; a present
 local generated key file overrides placeholder key values in `.env`. Production
 entry points read injected environment variables only and do not load local files.
+
 Do not use local/test keys in a real deployment. Worker and migration containers
 receive no JWT/encryption/pepper secrets.
 
@@ -49,8 +50,10 @@ requires verified PostgreSQL TLS and Redis TLS. No paid resources are provisione
 Private-CA networks can build without disabling TLS verification:
 
 ```sh
+
 docker build --secret id=npm_ca,src=/path/to/trusted-ca.pem -t amrutam-backend:local .
 docker compose --env-file .env --env-file work/security.env up --no-build -d --wait
+
 ```
 
 The CA is only mounted in dependency-install steps and is not copied into the image.
@@ -65,11 +68,15 @@ header, never query strings. Successful registration is always generic.
 Registration queues an **encrypted** activation-delivery record. No email provider
 or delivery consumer is configured. For a controlled local/manual workflow, use
 an operator connection with database-owner credentials and the application keys.
+
 The operator can find the registered user ID through its trusted database access.
+
 Bootstrap the initial administrator with:
 
 ```sh
+
 npm run identity:operator -- bootstrap-admin --email admin@example.test --name 'Local Admin'
+
 ```
 
 This command does not create a password, active account, or session. It refuses
@@ -79,11 +86,14 @@ uses a fully authenticated admin with recent MFA through the API.
 Export a pending setup token to a protected ignored file:
 
 ```sh
+
 npm run identity:operator -- setup-token --user-id USER_UUID --output work/activation-token.txt
+
 ```
 
 The export is audited, refuses overwrite, is restricted to `work/`, and never prints
 the token. Deliver it securely to its intended recipient; do not paste it into logs.
+
 Activation consumes it, requires a recipient-chosen password for every account, and returns
 only an enrollment challenge. Enroll TOTP using the one provisioning URI, then
 confirm a code to obtain full access and one-time recovery codes. The URI contains
@@ -106,9 +116,26 @@ upgrade adds version 0006 without modifying 0001–0005. Existing records are no
 silently activated. Downgrading 0006 intentionally fails while pending-activation
 rows exist; reconcile/export data first. Production changes use forward migrations.
 
+## Current verification status
+
+The repository is published at https://github.com/rameshwar0611/amrutam-telemedicine-backend.
+
+GitHub Actions CI and security workflows completed successfully. The local Docker
+Compose API, PostgreSQL, Redis, and worker services were healthy. All 72 unit
+tests passed locally on October 21, 2026. The 147 integration tests were
+previously reported passing during development; do not interpret this as a
+fresh local integration run.
+
+The architecture document and Terraform definitions are included. Cloud
+deployment, sustained 100,000 consultations/day, production p95 latency and
+99.95% availability, cloud recovery, and independent security certification
+are not demonstrated. The five-minute demo video is a separate submission
+deliverable and is not included in this repository.
+
 ## Verification
 
 ```sh
+
 npm run typecheck
 npm run lint
 npm run format:check
@@ -117,6 +144,7 @@ npm run openapi:check
 npm test
 npm run test:integration
 npm audit --audit-level=high
+
 ```
 
 Integration tests require `TEST_DATABASE_URL` naming an isolated database ending
@@ -129,36 +157,40 @@ accounts or credentials are shipped in the runtime image.
 Integration tests can read the two test URLs from ignored `.env`. In this managed
 workspace the equivalent recorded invocation loads ignored `work/test.env`; see
 `docs/phase4-verification.md`. Missing configuration fails rather than skipping tests.
+
 Generate the contract with `npm run openapi:generate`; CI rejects stale output.
 
 ## Structure and status
 
-- `src/entrypoints/`: API, worker, migrator, operator, local-key generator, OpenAPI.
-- `src/composition-root.ts`: explicit dependency wiring and transaction-scoped repositories.
-- `src/modules/identity/`: HTTP adapters, policies/services, ports, repositories and schemas.
-- `src/modules/audit/`: audit port and append-only PostgreSQL adapter.
-- `src/infrastructure/`: DB/Redis, crypto, config, HTTP lifecycle and logging adapters.
-- `src/shared/`: HTTP errors, JSON helpers and unit-of-work port.
-- `src/modules/bookings/` and `src/modules/doctors/`: Phase 3 business layers.
-- Clinical/prescription/payment/admin modules and the durable worker are implemented in Phase 4.
-- `docs/verification.md` and `docs/files-created.md` preserve Phase 1 historical evidence.
-- `docs/phase2-verification.md` and `docs/phase2-files.md` preserve Phase 2 evidence.
-- `docs/phase3-verification.md`, `docs/phase3-files.md` and `docs/booking-and-discovery.md` describe this phase.
-- `docs/implementation-checklist.md` retains every original PDF requirement.
+\- `src/entrypoints/`: API, worker, migrator, operator, local-key generator, OpenAPI.
+\- `src/composition-root.ts`: explicit dependency wiring and transaction-scoped repositories.
+\- `src/modules/identity/`: HTTP adapters, policies/services, ports, repositories and schemas.
+\- `src/modules/audit/`: audit port and append-only PostgreSQL adapter.
+\- `src/infrastructure/`: DB/Redis, crypto, config, HTTP lifecycle and logging adapters.
+\- `src/shared/`: HTTP errors, JSON helpers and unit-of-work port.
+\- `src/modules/bookings/` and `src/modules/doctors/`: Phase 3 business layers.
+\- Clinical/prescription/payment/admin modules and the durable worker are implemented in Phase 4.
+\- `docs/verification.md` and `docs/files-created.md` preserve Phase 1 historical evidence.
+\- `docs/phase2-verification.md` and `docs/phase2-files.md` preserve Phase 2 evidence.
+\- `docs/phase3-verification.md`, `docs/phase3-files.md` and `docs/booking-and-discovery.md` describe this phase.
+\- `docs/implementation-checklist.md` retains every original PDF requirement.
 
 The CI definition includes checks, contracts, real DB tests, dependency audit,
-Compose validation and image build. It has not been executed on GitHub in this
-session. Phase 5 is the current stopping boundary; Phase 6 requires explicit approval.
+Compose validation and image build. GitHub Actions CI and security workflows have completed successfully. Phase 5 is the current stopping boundary; Phase 6 requires explicit approval.
 
 Phase 3 endpoints and policies are documented in `docs/booking-and-discovery.md`.
+
 The two 100-request booking cases and 100-retry cancellation case run against real
 PostgreSQL through the restricted-role API graph. Cache fallback never bypasses
 MFA or fail-closed security rate limiting. Business outbox records are processed by the worker; setup delivery remains manual.
+
 No real provider delivery or money transfer is claimed.
 
 Phase 4 contracts are in `docs/clinical-payments-jobs.md`; exact verification and
 file inventories are in `docs/phase4-verification.md` and `docs/phase4-files.md`.
+
 Worker configuration uses WORKER_POLL_MS=1000 and WORKER_LEASE_MS=30000 by default.
+
 It requires no clinical/auth keys. Payments always report internal_fake mode.
 
 ## Operations and publication
@@ -170,7 +202,10 @@ undeployed AWS prerequisites; do not run Terraform apply without approval.
 `docs/phase5-verification.md` records exact checks and limitations;
 `docs/phase5-files.md` lists every Phase 5 addition/modification.
 `docs/github-publication.md` provides review, publication and Actions instructions.
-No commit, push, PR or cloud deployment has been performed.
+
+The source repository has been published to GitHub and PR #1 merged.
+
+Cloud deployment has not been performed.
 
 Performance scripts require an explicitly resettable isolated `_test` database and
 Redis `/15`. Never run them against the application database. Read the verification
