@@ -1,4 +1,4 @@
-# Amrutam backend — Phase 5
+# Amrutam Telemedicine Backend
 
 Express 5, strict TypeScript, constructor injection, PostgreSQL/Kysely, Redis,
 Argon2id, JOSE JWTs, TOTP MFA, OpenAPI, SQL migrations, Docker and automated tests.
@@ -9,7 +9,7 @@ controlled doctor/admin provisioning; doctor-owned availability; discovery/filte
 transactional booking/cancellation; encrypted clinical notes and prescription versions;
 internal payments, compensation, durable jobs; admin audit/analytics; write idempotency.
 
-**Phase 5 adds:** allowlisted OpenTelemetry request/SQL/job tracing and metrics,
+**Infrastructure and operations:** allowlisted OpenTelemetry request/SQL/job tracing and metrics,
 local Prometheus/Tempo/Grafana, alerts, restricted scheduled maintenance, backup
 restore testing, performance scripts, AWS Terraform and gated OIDC staging workflows.
 
@@ -17,6 +17,21 @@ restore testing, performance scripts, AWS Terraform and gated OIDC staging workf
 PITR/regional recovery, external paging and complete key-recovery drills. Automatic
 setup-email delivery remains manual through the audited operator. No production
 readiness or compliance certification is claimed.
+
+## Submission deliverables
+
+- [Architecture document (PDF)](docs/architecture-submission.pdf)
+- [OpenAPI specification](docs/openapi.json)
+- [Implementation checklist](docs/implementation-checklist.md)
+- [Identity and security contracts](docs/identity-security.md)
+- [Observability and operations](docs/operations.md)
+- [Backup and disaster recovery](docs/backup-dr.md)
+- [Infrastructure as code (Terraform)](infra/terraform/)
+- [Continuous integration workflow](.github/workflows/ci.yml)
+- [Booking and discovery design](docs/booking-and-discovery.md)
+- [Verification details](docs/phase5-verification.md)
+
+The demo video is submitted separately with the assignment email.
 
 ## Requirements and local setup
 
@@ -160,23 +175,23 @@ workspace the equivalent recorded invocation loads ignored `work/test.env`; see
 
 Generate the contract with `npm run openapi:generate`; CI rejects stale output.
 
-## Structure and status
+## Project structure and implementation notes
 
-\- `src/entrypoints/`: API, worker, migrator, operator, local-key generator, OpenAPI.
-\- `src/composition-root.ts`: explicit dependency wiring and transaction-scoped repositories.
-\- `src/modules/identity/`: HTTP adapters, policies/services, ports, repositories and schemas.
-\- `src/modules/audit/`: audit port and append-only PostgreSQL adapter.
-\- `src/infrastructure/`: DB/Redis, crypto, config, HTTP lifecycle and logging adapters.
-\- `src/shared/`: HTTP errors, JSON helpers and unit-of-work port.
-\- `src/modules/bookings/` and `src/modules/doctors/`: Phase 3 business layers.
+- `src/entrypoints/`: API, worker, migrator, operator, local-key generator, OpenAPI.
+- `src/composition-root.ts`: explicit dependency wiring and transaction-scoped repositories.
+- `src/modules/identity/`: HTTP adapters, policies/services, ports, repositories and schemas.
+- `src/modules/audit/`: audit port and append-only PostgreSQL adapter.
+- `src/infrastructure/`: DB/Redis, crypto, config, HTTP lifecycle and logging adapters.
+- `src/shared/`: HTTP errors, JSON helpers and unit-of-work port.
+- `src/modules/bookings/` and `src/modules/doctors/`: Phase 3 business layers.
 \- Clinical/prescription/payment/admin modules and the durable worker are implemented in Phase 4.
-\- `docs/verification.md` and `docs/files-created.md` preserve Phase 1 historical evidence.
-\- `docs/phase2-verification.md` and `docs/phase2-files.md` preserve Phase 2 evidence.
-\- `docs/phase3-verification.md`, `docs/phase3-files.md` and `docs/booking-and-discovery.md` describe this phase.
-\- `docs/implementation-checklist.md` retains every original PDF requirement.
+- `docs/verification.md` and `docs/files-created.md` preserve Phase 1 historical evidence.
+- `docs/phase2-verification.md` and `docs/phase2-files.md` preserve Phase 2 evidence.
+- `docs/phase3-verification.md`, `docs/phase3-files.md` and `docs/booking-and-discovery.md` describe this phase.
+- `docs/implementation-checklist.md` retains every original PDF requirement.
 
 The CI definition includes checks, contracts, real DB tests, dependency audit,
-Compose validation and image build. GitHub Actions CI and security workflows have completed successfully. Phase 5 is the current stopping boundary; Phase 6 requires explicit approval.
+Compose validation and image build. GitHub Actions CI and security workflows have completed successfully.
 
 Phase 3 endpoints and policies are documented in `docs/booking-and-discovery.md`.
 
@@ -203,7 +218,7 @@ undeployed AWS prerequisites; do not run Terraform apply without approval.
 `docs/phase5-files.md` lists every Phase 5 addition/modification.
 `docs/github-publication.md` provides review, publication and Actions instructions.
 
-The source repository has been published to GitHub and PR #1 merged.
+The source repository is published on GitHub.
 
 Cloud deployment has not been performed.
 
